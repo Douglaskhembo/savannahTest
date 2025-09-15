@@ -1,0 +1,14 @@
+Django>=4.2
+djangorestframework
+psycopg2-binary
+gunicorn
+python-dotenv
+requests
+authlib
+coverage
+pytest
+pytest-django
+factory-boy
+django-filter
+celery[redis]
+africastalking==2.0
