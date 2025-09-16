@@ -12,3 +12,4 @@ factory-boy
 django-filter
 celery[redis]
 africastalking==2.0
+dj-database-url
