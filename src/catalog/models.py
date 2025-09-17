@@ -19,11 +19,11 @@ class Category(models.Model):
             descendants.extend(child.get_descendants())
         return descendants
 
-    class Product(models.Model):
-        code = models.CharField(max_length=100, unique=True)
-        name = models.CharField(max_length=255)
-        price = models.DecimalField(max_digits=10, decimal_places=2)
-        category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
+class Product(models.Model):
+    code = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
 
-        def __str__(self):
-            return self.name
+    def __str__(self):
+        return self.name
