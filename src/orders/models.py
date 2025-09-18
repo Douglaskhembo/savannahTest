@@ -1,6 +1,6 @@
 from django.db import models
 from django.conf import settings
-from catalog.models import Product
+from src.catalog.models import Product
 
 class Order(models.Model):
     class Status(models.TextChoices):
