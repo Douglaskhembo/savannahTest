@@ -16,7 +16,6 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('role', User.Role.ADMIN)
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('name', 'System Admin')
         return self.create_user(email, password, **extra_fields)
 
 
@@ -36,21 +35,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
+    auth0_id = models.CharField(max_length=100, blank=True, null=True, unique=True)  # Added Auth0 ID
+
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["phone", "first_name", "last_name"]
 
-    objects = BaseUserManager()
+    objects = UserManager()
 
     def __str__(self):
         return f"{self.email} ({self.role})"
-
-    # Role check helper
-    def has_role(self, role: str) -> bool:
-        return self.role == role
-
-    # Check multiple roles
-    def has_any_role(self, *roles) -> bool:
-        return self.role in roles

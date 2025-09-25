@@ -5,17 +5,15 @@ import dj_database_url
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# --- Paths ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG")
-
+# --- Security ---
+SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
 
-# Application definition
+# --- Applications ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -23,14 +21,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Third-party
     'rest_framework',
     'django_filters',
+    'mozilla_django_oidc',
+    'drf_spectacular',
+    # Local apps
     'src.users',
     'src.catalog',
-    'src.tests',
     'src.orders',
+    'src.tests',
 ]
 
+# --- Middleware ---
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -61,78 +64,108 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'src.config.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+# --- Database ---
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL is not set in .env")
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default="postgres://postgres:postgres@db:5432/savannah_db",
-        conn_max_age=600,
-    )
+    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 }
 
+# --- Email ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
+# --- Django REST Framework + OIDC ---
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
+        'mozilla_django_oidc.contrib.drf.OIDCAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
     ),
 }
 
-AFRICA_TAKING_USERNAME = os.getenv("AFRICA_TAKING_USERNAME")
-AFRICA_TAKING_PASSWORD = os.getenv("AFRICA_TALKING_PASSWORD")
+# --- Auth0 OIDC ---
+AUTH_USER_MODEL = 'users.User'
 
-# Password validation
+AUTHENTICATION_BACKENDS = (
+    "src.users.backends.MyOIDCBackend",
+    "django.contrib.auth.backends.ModelBackend",
+)
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
+OIDC_RP_SIGN_ALGO = "RS256"
 
+LOGIN_URL = "/oidc/authenticate/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
 
-# Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
+AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
+OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
+AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
 
-LANGUAGE_CODE = 'en-us'
+# Build endpoints dynamically from domain
+OIDC_OP_AUTHORIZATION_ENDPOINT = f"https://{AUTH0_DOMAIN}/authorize"
+OIDC_OP_TOKEN_ENDPOINT = f"https://{AUTH0_DOMAIN}/oauth/token"
+OIDC_OP_USER_ENDPOINT = f"https://{AUTH0_DOMAIN}/userinfo"
+OIDC_OP_JWKS_ENDPOINT = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
 
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_TZ = True
+# --- Auth0 M2M (Management API App) ---
+AUTH0_M2M_CLIENT_ID = os.getenv("AUTH0_M2M_CLIENT_ID")
+AUTH0_M2M_CLIENT_SECRET = os.getenv("AUTH0_M2M_CLIENT_SECRET")
+AUTH0_M2M_AUDIENCE = os.getenv("AUTH0_M2M_AUDIENCE")
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
+OIDC_RP_SCOPES = "openid email profile"
 
+# --- Africa's Talking ---
+AFRICA_TALKING_USERNAME = os.getenv("AFRICA_TALKING_USERNAME")
+AFRICA_TALKING_PASSWORD = os.getenv("AFRICA_TALKING_PASSWORD")
+
+# --- API Docs ---
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Savannah Backend API',
+    'DESCRIPTION': 'Backend API documentation',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'oauth2': ['openid', 'email', 'profile']}],
+    'COMPONENTS': {
+        'securitySchemes': {
+            'oauth2': {
+                'type': 'oauth2',
+                'flows': {
+                    'authorizationCode': {
+                        'authorizationUrl': f"https://{AUTH0_DOMAIN}/authorize",
+                        'tokenUrl': f"https://{AUTH0_DOMAIN}/oauth/token",
+                        'scopes': {
+                            'openid': 'OpenID Connect scope',
+                            'email': 'Access to email',
+                            'profile': 'Access to profile',
+                        },
+                    }
+                },
+            }
+        }
+    }
+}
+
+
+# --- Static & Media ---
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-AUTH_USER_MODEL = 'users.User'
+import src.config.spectacular_extensions
