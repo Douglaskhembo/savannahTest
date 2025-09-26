@@ -13,3 +13,8 @@ django-filter
 celery[redis]
 africastalking==2.0
 dj-database-url
+mozilla-django-oidc
+drf-spectacular
+django-cors-headers
+PyJWT>=2.8.0
+djangorestframework-simplejwt>=5.5.1

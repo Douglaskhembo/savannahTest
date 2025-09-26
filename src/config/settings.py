@@ -5,17 +5,16 @@ import dj_database_url
 
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# --- Paths ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG")
-
+# --- Security ---
+SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False").lower() in ("true", "1")
 
-# Application definition
+# --- Applications ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -25,13 +24,18 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'django_filters',
+    'drf_spectacular',
+    'corsheaders',
     'src.users',
     'src.catalog',
-    'src.tests',
     'src.orders',
+    'src.tests',
+    'src.core',
 ]
 
+# --- Middleware ---
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -61,78 +65,84 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'src.config.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+# --- Database ---
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL is not set in .env")
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default="postgres://postgres:postgres@db:5432/savannah_db",
-        conn_max_age=600,
-    )
+    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 }
 
+# --- Email ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("true", "1")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
+# --- Django REST Framework ---
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
+        'src.config.authentication.GoogleOIDCAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+        'rest_framework.permissions.IsAuthenticated',
     ),
 }
 
-AFRICA_TAKING_USERNAME = os.getenv("AFRICA_TAKING_USERNAME")
-AFRICA_TAKING_PASSWORD = os.getenv("AFRICA_TALKING_PASSWORD")
 
-# Password validation
+# --- Google OIDC for API ---
+AUTH_USER_MODEL = 'users.User'
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
+# --- Africa's Talking ---
+AFRICA_TALKING_USERNAME = os.getenv("AFRICA_TALKING_USERNAME")
+AFRICA_TALKING_APIKEY = os.getenv("AFRICA_TALKING_APIKEY")
+AFRICA_TALKING_CODE = os.getenv("AFRICA_TALKING_CODE")
 
-# Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
+# --- API Docs ---
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Savannah Backend API',
+    'DESCRIPTION': 'Backend API documentation',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'oauth2': ['openid', 'email', 'profile']}],
+    'COMPONENTS': {
+        'securitySchemes': {
+            'oauth2': {
+                'type': 'oauth2',
+                'flows': {
+                    'authorizationCode': {
+                        'authorizationUrl': 'https://accounts.google.com/o/oauth2/v2/auth',
+                        'tokenUrl': 'https://oauth2.googleapis.com/token',
+                        'scopes': {
+                            'openid': 'OpenID Connect scope',
+                            'email': 'Access to email',
+                            'profile': 'Access to profile',
+                        },
+                    }
+                },
+            }
+        }
+    }
+}
 
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
+# --- Static & Media ---
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-AUTH_USER_MODEL = 'users.User'
+import src.config.spectacular_extensions

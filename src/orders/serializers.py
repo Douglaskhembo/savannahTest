@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Order, OrderProducts
 from src.catalog.serializers import ProductSerializer
 from src.catalog.models import Product
+from src.core.notifications import notify_order_placed
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField(write_only=True)
@@ -23,8 +24,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('id','customer','created_at','total','status','items')
-        read_only_fields = ('id','created_at','total')
+        fields = ('id', 'order_code', 'customer', 'created_at', 'total', 'status', 'items')
+        read_only_fields = ('id', 'created_at', 'total', 'status', 'order_code')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
@@ -36,7 +37,7 @@ class OrderSerializer(serializers.ModelSerializer):
             total += oi.price * oi.quantity
         order.total = total
         order.save()
+
         # trigger notifications
-        from core.notifications import notify_order_placed
         notify_order_placed(order)
         return order
