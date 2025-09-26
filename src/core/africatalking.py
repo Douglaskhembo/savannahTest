@@ -22,7 +22,7 @@ class ATClient:
             response = self.sms.send(
                 message,
                 to if isinstance(to, list) else [to],
-                sender_id=settings.AFRICA_TALKING_SENDERCODE
+                sender_id=settings.AFRICA_TALKING_CODE
             )
             return response
         except Exception as e:
