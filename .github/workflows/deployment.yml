@@ -53,6 +53,8 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+      - name: Install flake8 + black
+        run: pip install flake8 black
       - name: Run linter (use .flake8 config)
         run: flake8 .
 
@@ -92,6 +94,10 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+      - name: Install test dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-django pytest-cov
       - name: Run tests
         run: pytest --ds=src.config.settings --cov=src
 
