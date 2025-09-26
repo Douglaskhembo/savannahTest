@@ -1,7 +1,6 @@
 import os
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 
-
 class OIDCAuthenticationScheme(OpenApiAuthenticationExtension):
     target_class = "mozilla_django_oidc.contrib.drf.OIDCAuthentication"
     name = "openid"

@@ -24,7 +24,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'django_filters',
-    'mozilla_django_oidc',
     'drf_spectacular',
     'corsheaders',
     'src.users',
@@ -32,7 +31,6 @@ INSTALLED_APPS = [
     'src.orders',
     'src.tests',
     'src.core',
-
 ]
 
 # --- Middleware ---
@@ -85,49 +83,25 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
-# --- Django REST Framework + OIDC ---
+# --- Django REST Framework ---
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'mozilla_django_oidc.contrib.drf.OIDCAuthentication',
+        'src.config.authentication.GoogleOIDCAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
 }
 
-# --- Auth0 OIDC ---
+
+# --- Google OIDC for API ---
 AUTH_USER_MODEL = 'users.User'
 
-AUTHENTICATION_BACKENDS = (
-    "src.users.backends.MyOIDCBackend",
-    "django.contrib.auth.backends.ModelBackend",
-)
-
-OIDC_RP_SIGN_ALGO = "RS256"
-
-LOGIN_URL = "/oidc/authenticate/"
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/"
-
-AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
-OIDC_RP_CLIENT_ID = os.getenv("OIDC_RP_CLIENT_ID")
-OIDC_RP_CLIENT_SECRET = os.getenv("OIDC_RP_CLIENT_SECRET")
-AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
-
-# Build endpoints dynamically from domain
-OIDC_OP_AUTHORIZATION_ENDPOINT = f"https://{AUTH0_DOMAIN}/authorize"
-OIDC_OP_TOKEN_ENDPOINT = f"https://{AUTH0_DOMAIN}/oauth/token"
-OIDC_OP_USER_ENDPOINT = f"https://{AUTH0_DOMAIN}/userinfo"
-OIDC_OP_JWKS_ENDPOINT = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
-
-# --- Auth0 M2M (Management API App) ---
-AUTH0_M2M_CLIENT_ID = os.getenv("AUTH0_M2M_CLIENT_ID")
-AUTH0_M2M_CLIENT_SECRET = os.getenv("AUTH0_M2M_CLIENT_SECRET")
-AUTH0_M2M_AUDIENCE = os.getenv("AUTH0_M2M_AUDIENCE")
-
-
-OIDC_RP_SCOPES = "openid email profile"
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
 # --- Africa's Talking ---
 AFRICA_TALKING_USERNAME = os.getenv("AFRICA_TALKING_USERNAME")
@@ -148,8 +122,8 @@ SPECTACULAR_SETTINGS = {
                 'type': 'oauth2',
                 'flows': {
                     'authorizationCode': {
-                        'authorizationUrl': f"https://{AUTH0_DOMAIN}/authorize",
-                        'tokenUrl': f"https://{AUTH0_DOMAIN}/oauth/token",
+                        'authorizationUrl': 'https://accounts.google.com/o/oauth2/v2/auth',
+                        'tokenUrl': 'https://oauth2.googleapis.com/token',
                         'scopes': {
                             'openid': 'OpenID Connect scope',
                             'email': 'Access to email',
@@ -161,7 +135,6 @@ SPECTACULAR_SETTINGS = {
         }
     }
 }
-
 
 # --- Static & Media ---
 STATIC_URL = '/static/'

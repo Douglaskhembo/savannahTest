@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Swagger OAuth2 Redirect</title>
+  </head>
+  <body>
+    <script>
+      'use strict';
+      function run() {
+        const hash = window.location.hash;
+        const query = window.location.search;
+        if (hash) {
+          window.opener.swaggerUIRedirectCallback(hash);
+        } else if (query) {
+          window.opener.swaggerUIRedirectCallback(query);
+        }
+        window.close();
+      }
+      run();
+    </script>
+  </body>
+</html>

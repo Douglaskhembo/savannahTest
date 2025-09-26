@@ -4,10 +4,15 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
 from drf_spectacular.utils import extend_schema
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
 import requests
+import jwt
 
-from .models import User
-from .serializers import UserSerializer, LoginSerializer, TokenResponseSerializer
+from .serializers import UserSerializer, GoogleTokenSerializer
+
+User = get_user_model()
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -21,100 +26,104 @@ class UserViewSet(viewsets.ModelViewSet):
             return [IsAdminUser()]
         return super().get_permissions()
 
-    # ----- Login (POST for Swagger/Postman) -----
     @extend_schema(
-        request=LoginSerializer,
-        responses={200: TokenResponseSerializer},
-        description="Login with email & password to get Auth0 access token (Free Tier)"
+        request=GoogleTokenSerializer,
+        responses={200: GoogleTokenSerializer},
+        description="Login via Google OIDC. Provide authorization code from Google frontend flow."
     )
-    @action(detail=False, methods=["post"], url_path="login", permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"], url_path="token", permission_classes=[AllowAny])
     def login(self, request):
-        serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        code = request.data.get("code")
+        redirect_uri = request.data.get("redirect_uri") or settings.GOOGLE_REDIRECT_URI
 
-        email = serializer.validated_data["email"]
-        password = serializer.validated_data["password"]
+        if not code:
+            return Response({"detail": "Authorization code required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        token_url = settings.OIDC_OP_TOKEN_ENDPOINT
-        payload = {
-            "grant_type": "password",
-            "client_id": settings.OIDC_RP_CLIENT_ID,
-            "client_secret": settings.OIDC_RP_CLIENT_SECRET,
-            "username": email,
-            "password": password,
-            "audience": settings.AUTH0_AUDIENCE,
-            "scope": "openid profile email",
-            "realm": "Username-Password-Authentication",
+        # Exchange code for tokens with Google
+        data = {
+            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
         }
 
-        resp = requests.post(token_url, json=payload)
+        try:
+            token_resp = requests.post("https://oauth2.googleapis.com/token", data=data)
+            token_resp.raise_for_status()
+        except requests.RequestException as e:
+            return Response({"detail": "Failed to obtain token", "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        if resp.status_code != 200:
-            return Response(
-                {"detail": "Failed to authenticate with Auth0", "error": resp.json()},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        tokens = token_resp.json()
+        id_token = tokens.get("id_token")
+        access_token = tokens.get("access_token")
 
-        return Response(resp.json(), status=status.HTTP_200_OK)
+        # Decode id_token
+        decoded = jwt.decode(id_token, options={"verify_signature": False})
+        email = decoded.get("email")
+        first_name = decoded.get("given_name", "")
+        last_name = decoded.get("family_name", "")
 
-    # ----- Helper: Get Management Token -----
-    def get_management_token(self):
-        url = f"https://{settings.AUTH0_DOMAIN}/oauth/token"
-        payload = {
-            "grant_type": "client_credentials",
-            "client_id": settings.AUTH0_M2M_CLIENT_ID,
-            "client_secret": settings.AUTH0_M2M_CLIENT_SECRET,
-            "audience": settings.AUTH0_M2M_AUDIENCE,
-        }
-        resp = requests.post(url, json=payload)
-        resp.raise_for_status()
-        return resp.json()["access_token"]
+        # Create or update user
+        user, _ = User.objects.get_or_create(email=email, defaults={
+            "first_name": first_name,
+            "last_name": last_name,
+        })
 
-    # ----- Register -----
+        return Response({
+            "access_token": access_token,
+            "id_token": id_token,
+            "expires_in": tokens.get("expires_in"),
+            "token_type": tokens.get("token_type"),
+            "scope": tokens.get("scope"),
+        }, status=status.HTTP_200_OK)
+
     @extend_schema(
         request=UserSerializer,
         responses={201: UserSerializer},
-        description="Register a new user via Auth0 and create local metadata"
+        description="Register a new user locally (Google OIDC users will be created automatically on first login)"
     )
     @action(detail=False, methods=["post"], url_path="register", permission_classes=[AllowAny])
     def register(self, request):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        try:
-            token = self.get_management_token()
-        except Exception as e:
-            return Response(
-                {"detail": "Failed to get Auth0 Management API token", "error": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-        payload = {
-            "email": serializer.validated_data["email"],
-            "password": serializer.validated_data["password"],
-            "connection": "Username-Password-Authentication",
-            "given_name": serializer.validated_data.get("first_name", ""),
-            "family_name": serializer.validated_data.get("last_name", ""),
-        }
-
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        }
-
-        resp = requests.post(
-            f"https://{settings.AUTH0_DOMAIN}/api/v2/users",
-            json=payload,
-            headers=headers
-        )
-
-        if resp.status_code != 201:
-            return Response(
-                {"detail": "Failed to create user in Auth0", "error": resp.json()},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        auth0_user = resp.json()
-        user = serializer.save(auth0_id=auth0_user.get("user_id"))
-
+        user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+@csrf_exempt
+def google_callback(request):
+    code = request.GET.get("code")
+    if not code:
+        return JsonResponse({"error": "No code provided"}, status=400)
+
+    data = {
+        "code": code,
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+
+    token_resp = requests.post("https://oauth2.googleapis.com/token", data=data)
+    tokens = token_resp.json()
+    id_token = tokens.get("id_token")
+    access_token = tokens.get("access_token")
+
+    decoded = jwt.decode(id_token, options={"verify_signature": False})
+    email = decoded.get("email")
+    first_name = decoded.get("given_name", "")
+    last_name = decoded.get("family_name", "")
+
+    user, _ = User.objects.get_or_create(email=email, defaults={
+        "first_name": first_name,
+        "last_name": last_name,
+    })
+
+    return JsonResponse({
+        "access_token": access_token,
+        "id_token": id_token,
+        "expires_in": tokens.get("expires_in"),
+        "token_type": tokens.get("token_type"),
+        "scope": tokens.get("scope"),
+    })

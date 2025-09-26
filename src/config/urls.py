@@ -5,7 +5,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from src.catalog.views import CategoryViewSet, ProductViewSet
 from src.orders.views import OrderViewSet
-from src.users.views import UserViewSet
+from src.users.views import UserViewSet,google_callback
 
 router = routers.DefaultRouter()
 router.register(r'categories', CategoryViewSet)
@@ -19,5 +19,5 @@ urlpatterns = [
     path('api/auth/', include('rest_framework.urls')),
     path("api/schema", SpectacularAPIView.as_view(), name="schema"),
     path("swagger", SpectacularSwaggerView.as_view(url_name="schema"), name="schema-swagger"),
-    path("oidc/", include("mozilla_django_oidc.urls")),
+    path("oidc/callback/", google_callback, name="google-callback"),
 ]
