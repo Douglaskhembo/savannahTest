@@ -64,7 +64,6 @@ def test_average_price_invalid_category(api_client):
 
 
 def test_average_price_success(api_client, category):
-    # Add multiple products in category
     Product.objects.create(name="Cookie", price=100, category=category)
     Product.objects.create(name="Cake", price=200, category=category)
 

@@ -24,3 +24,4 @@ coverage
 factory-boy
 flake8
 black
+pytest-mock
