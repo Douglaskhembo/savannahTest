@@ -11,7 +11,7 @@ def notify_order_placed(order):
     if phone and phone.startswith("0"):  # normalize Kenyan numbers
         phone = "+254" + phone[1:]
 
-    msg = f"Hi {order.customer.first_name}, your order #{order.id} has been placed. Total: {order.total}"
+    msg = f"Hi {order.customer.first_name}, your order #{order.order_code} has been placed. Total: {order.total}"
     try:
         africastalking_client.send_sms([phone], msg)
     except Exception as e:
@@ -25,11 +25,12 @@ def notify_order_placed(order):
     )
 
     if admin_emails:
-        subject = f"New order #{order.id} placed"
+        subject = f"Purchase order {order.order_code} placed"
         body = (
-            f"Order ID: {order.id}\n"
-            f"Customer: {order.customer.first_name} {order.customer.last_name} "
-            f"({order.customer.email})\n"
+            f"New order has been placed, below are order details Code\n"
+            f"Order Code: {order.order_code}\n"
+            f"Customer name: {order.customer.first_name} {order.customer.last_name} \n"
+            f"Customer email: ({order.customer.email})\n"
             f"Total: {order.total}\n\n"
             "Items:\n"
         )
