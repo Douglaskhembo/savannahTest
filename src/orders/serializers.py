@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from .models import Order, OrderProducts
-from src.catalog.serializers import ProductSerializer
 from src.catalog.models import Product
 from src.core.notifications import notify_order_placed
 

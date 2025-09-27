@@ -1,5 +1,4 @@
 from mozilla_django_oidc.auth import OIDCAuthenticationBackend
-from .models import User
 
 
 class MyOIDCBackend(OIDCAuthenticationBackend):

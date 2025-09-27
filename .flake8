@@ -11,4 +11,5 @@ exclude =
     env,
     build,
     dist
+    settings.py
 max-line-length = 120
