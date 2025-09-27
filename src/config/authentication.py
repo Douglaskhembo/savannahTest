@@ -1,6 +1,7 @@
 from rest_framework import authentication, exceptions
 import requests
 
+
 class GoogleOIDCAuthentication(authentication.BaseAuthentication):
     def authenticate(self, request):
         auth = request.headers.get("Authorization")

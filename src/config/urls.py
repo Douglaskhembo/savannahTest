@@ -5,7 +5,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from src.catalog.views import CategoryViewSet, ProductViewSet
 from src.orders.views import OrderViewSet
-from src.users.views import UserViewSet,google_callback
+from src.users.views import UserViewSet, google_callback
 
 router = routers.DefaultRouter()
 router.register(r'categories', CategoryViewSet)

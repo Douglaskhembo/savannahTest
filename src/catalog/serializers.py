@@ -44,6 +44,7 @@ class CategorySerializer(serializers.ModelSerializer):
             validated_data["parent"] = instance.parent
         return super().update(instance, validated_data)
 
+
 class ProductSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
 

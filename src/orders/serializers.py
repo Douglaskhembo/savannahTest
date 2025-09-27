@@ -4,12 +4,13 @@ from src.catalog.serializers import ProductSerializer
 from src.catalog.models import Product
 from src.core.notifications import notify_order_placed
 
+
 class OrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField(write_only=True)
 
     class Meta:
         model = OrderProducts
-        fields = ('id','product_id','quantity','price')
+        fields = ('id', 'product_id', 'quantity', 'price')
         read_only_fields = ('price',)
 
     def create(self, validated_data):
@@ -18,6 +19,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         validated_data['product'] = product
         validated_data.pop('product_id', None)
         return OrderProducts.objects.create(**validated_data)
+
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True)
@@ -38,6 +40,5 @@ class OrderSerializer(serializers.ModelSerializer):
         order.total = total
         order.save()
 
-        # trigger notifications
         notify_order_placed(order)
         return order

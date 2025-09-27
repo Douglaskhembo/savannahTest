@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 
+
 class Category(models.Model):
     category_code = models.CharField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=100)

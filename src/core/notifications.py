@@ -4,6 +4,7 @@ from .africatalking import africastalking_client
 
 User = get_user_model()
 
+
 def notify_order_placed(order):
     # --- SMS to customer ---
     phone = order.customer.phone

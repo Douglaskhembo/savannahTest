@@ -1,6 +1,7 @@
 import africastalking
 from django.conf import settings
 
+
 class ATClient:
     def __init__(self):
         username = settings.AFRICA_TALKING_USERNAME
@@ -28,5 +29,6 @@ class ATClient:
         except Exception as e:
             print("Error sending SMS:", e)
             return {'status': 'failed', 'error': str(e)}
+
 
 africastalking_client = ATClient()
