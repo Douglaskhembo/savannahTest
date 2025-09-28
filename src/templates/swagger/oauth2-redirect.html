@@ -1,0 +1,38 @@
+<script>
+(function() {
+  'use strict';
+
+  const params = {};
+  const queryString = window.location.search.substring(1);
+  if (queryString) {
+    queryString.split('&').forEach(pair => {
+      const [key, value] = pair.split('=');
+      params[decodeURIComponent(key)] = decodeURIComponent(value);
+    });
+  }
+
+  function handleCallback(oauth2) {
+    if (!oauth2) return;
+    if (params.state && params.state !== oauth2.state) {
+      oauth2.errCb({ message: "State mismatch" });
+    } else if (params.code) {
+      delete oauth2.state;
+      oauth2.callback({ code: params.code, state: params.state });
+    } else {
+      oauth2.errCb({ message: "Authorization failed" });
+    }
+  }
+
+  if (window.opener && window.opener.swaggerUIRedirectOauth2) {
+    handleCallback(window.opener.swaggerUIRedirectOauth2);
+    window.close();
+  } else {
+    const interval = setInterval(() => {
+      if (window.swaggerUIRedirectOauth2) {
+        handleCallback(window.swaggerUIRedirectOauth2);
+        clearInterval(interval);
+      }
+    }, 200);
+  }
+})();
+</script>

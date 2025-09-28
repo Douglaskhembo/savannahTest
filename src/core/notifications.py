@@ -6,7 +6,7 @@ User = get_user_model()
 
 
 def notify_order_placed(order):
-    # --- SMS to customer ---
+    # sending SMS to customer
     phone = order.customer.phone
     if phone and phone.startswith("0"):  # normalize Kenyan numbers
         phone = "+254" + phone[1:]
@@ -23,7 +23,7 @@ def notify_order_placed(order):
         .exclude(email__exact="")
         .values_list("email", flat=True)
     )
-
+    # sending email to admin
     if admin_emails:
         subject = f"Purchase order {order.order_code} placed"
         body = (

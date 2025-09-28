@@ -50,7 +50,7 @@ ROOT_URLCONF = 'src.config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -95,8 +95,7 @@ REST_FRAMEWORK = {
     ),
 }
 
-
-# --- Google OIDC for API ---
+# --- Google OIDC ---
 AUTH_USER_MODEL = 'users.User'
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -115,26 +114,8 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
-    'SECURITY': [{'oauth2': ['openid', 'email', 'profile']}],
-    'COMPONENTS': {
-        'securitySchemes': {
-            'oauth2': {
-                'type': 'oauth2',
-                'flows': {
-                    'authorizationCode': {
-                        'authorizationUrl': 'https://accounts.google.com/o/oauth2/v2/auth',
-                        'tokenUrl': 'https://oauth2.googleapis.com/token',
-                        'scopes': {
-                            'openid': 'OpenID Connect scope',
-                            'email': 'Access to email',
-                            'profile': 'Access to profile',
-                        },
-                    }
-                },
-            }
-        }
-    }
 }
+
 
 # --- Static & Media ---
 STATIC_URL = '/static/'

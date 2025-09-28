@@ -1,3 +1,4 @@
+# src/users/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -6,11 +7,11 @@ from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import requests
 import jwt
 
-from .serializers import UserSerializer, GoogleTokenSerializer
+from .serializers import UserSerializer
 
 User = get_user_model()
 
@@ -20,26 +21,26 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        if self.action in ["register", "login"]:
+        if self.action in ["register", "token"]:
             return [AllowAny()]
         elif self.action in ["list", "retrieve", "update", "partial_update", "destroy"]:
             return [IsAdminUser()]
         return super().get_permissions()
 
     @extend_schema(
-        request=GoogleTokenSerializer,
-        responses={200: GoogleTokenSerializer},
-        description="Login via Google OIDC. Provide authorization code from Google frontend flow."
+        description="Exchange Google authorization code for access_token and id_token. "
+                    "Use the returned access_token in Swagger Authorize → Bearer <token>.",
+        request=None,
+        responses={200: dict},
     )
     @action(detail=False, methods=["post"], url_path="token", permission_classes=[AllowAny])
-    def login(self, request):
+    def token(self, request):
         code = request.data.get("code")
         redirect_uri = request.data.get("redirect_uri") or settings.GOOGLE_REDIRECT_URI
 
         if not code:
             return Response({"detail": "Authorization code required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Exchange code for tokens with Google
         data = {
             "code": code,
             "client_id": settings.GOOGLE_CLIENT_ID,
@@ -49,7 +50,7 @@ class UserViewSet(viewsets.ModelViewSet):
         }
 
         try:
-            token_resp = requests.post("https://oauth2.googleapis.com/token", data=data)
+            token_resp = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=10)
             token_resp.raise_for_status()
         except requests.RequestException as e:
             return Response({"detail": "Failed to obtain token", "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -58,13 +59,17 @@ class UserViewSet(viewsets.ModelViewSet):
         id_token = tokens.get("id_token")
         access_token = tokens.get("access_token")
 
-        # Decode id_token
+        if not id_token or not access_token:
+            return Response({"detail": "Missing id_token or access_token"}, status=status.HTTP_400_BAD_REQUEST)
+
         decoded = jwt.decode(id_token, options={"verify_signature": False})
         email = decoded.get("email")
         first_name = decoded.get("given_name", "")
         last_name = decoded.get("family_name", "")
 
-        # Create or update user
+        if not email:
+            return Response({"detail": "No email returned by provider"}, status=status.HTTP_400_BAD_REQUEST)
+
         user, _ = User.objects.get_or_create(email=email, defaults={
             "first_name": first_name,
             "last_name": last_name,
@@ -79,9 +84,9 @@ class UserViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_200_OK)
 
     @extend_schema(
+        description="Register a new user locally. OIDC users are created automatically on first login via Google.",
         request=UserSerializer,
         responses={201: UserSerializer},
-        description="Register a new user locally (Google OIDC users will be created automatically on first login)"
     )
     @action(detail=False, methods=["post"], url_path="register", permission_classes=[AllowAny])
     def register(self, request):
@@ -105,25 +110,31 @@ def google_callback(request):
         "grant_type": "authorization_code",
     }
 
-    token_resp = requests.post("https://oauth2.googleapis.com/token", data=data)
+    try:
+        token_resp = requests.post("https://oauth2.googleapis.com/token", data=data, timeout=10)
+        token_resp.raise_for_status()
+    except requests.RequestException as e:
+        return JsonResponse({"error": "Failed to obtain token", "details": str(e)}, status=400)
+
     tokens = token_resp.json()
-    id_token = tokens.get("id_token")
     access_token = tokens.get("access_token")
+    refresh_token = tokens.get("refresh_token")
+    id_token = tokens.get("id_token")
 
-    decoded = jwt.decode(id_token, options={"verify_signature": False})
-    email = decoded.get("email")
-    first_name = decoded.get("given_name", "")
-    last_name = decoded.get("family_name", "")
+    if not access_token or not id_token:
+        return JsonResponse({"error": "Missing id_token or access_token"}, status=400)
 
-    user, _ = User.objects.get_or_create(email=email, defaults={
-        "first_name": first_name,
-        "last_name": last_name,
-    })
+    # Display tokens in browser so you can copy them
+    html = f"""
+    <html>
+    <body style="font-family: sans-serif; padding: 2rem;">
+        <h2>Google OAuth Tokens</h2>
+        <p><b>Access Token:</b> <code>{access_token}</code></p>
+        <p><b>Refresh Token:</b> <code>{refresh_token}</code></p>
+        <p><b>ID Token:</b> <code>{id_token}</code></p>
+        <p>Use the <b>Access Token</b> in Swagger Authorize → Bearer &lt;token&gt;</p>
+    </body>
+    </html>
+    """
+    return HttpResponse(html)
 
-    return JsonResponse({
-        "access_token": access_token,
-        "id_token": id_token,
-        "expires_in": tokens.get("expires_in"),
-        "token_type": tokens.get("token_type"),
-        "scope": tokens.get("scope"),
-    })
