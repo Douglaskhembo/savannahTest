@@ -16,6 +16,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, null=True)
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders')
     total = models.DecimalField(decimal_places=2, max_digits=10, default=0)
+    is_deleted = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.order_code} by {self.customer}"
@@ -35,6 +36,13 @@ class Order(models.Model):
             self.order_code = f"{prefix}{new_number:04d}"
 
         super().save(*args, **kwargs)
+
+    def delete(self, using=None, keep_parents=False):
+        if not getattr(self, "_hard_delete", False):
+            self.is_deleted = True
+            self.save()
+        else:
+            super().delete(using, keep_parents)
 
 
 class OrderProducts(models.Model):

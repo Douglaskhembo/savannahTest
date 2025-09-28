@@ -1,8 +1,8 @@
-# src/users/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.exceptions import PermissionDenied
 from drf_spectacular.utils import extend_schema
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -12,6 +12,7 @@ import requests
 import jwt
 
 from .serializers import UserSerializer
+from .permissions import IsOwnerOrAdmin
 
 User = get_user_model()
 
@@ -23,9 +24,21 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ["register", "token"]:
             return [AllowAny()]
-        elif self.action in ["list", "retrieve", "update", "partial_update", "destroy"]:
+        elif self.action == "list":
             return [IsAdminUser()]
+        elif self.action in ["retrieve", "update", "partial_update", "destroy"]:
+            return [IsOwnerOrAdmin()]
         return super().get_permissions()
+
+    def perform_destroy(self, instance):
+        request = self.request
+        if request.user.role == User.Role.ADMIN:
+            instance.delete()
+        elif instance == request.user:
+            instance.is_active = False
+            instance.save()
+        else:
+            raise PermissionDenied("You can only delete your own account.")
 
     @extend_schema(
         description="Exchange Google authorization code for access_token and id_token. "
@@ -95,6 +108,19 @@ class UserViewSet(viewsets.ModelViewSet):
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(
+        description="Get or update the logged-in user without needing their ID."
+    )
+    @action(detail=False, methods=["get", "put", "patch"], url_path="me", permission_classes=[IsOwnerOrAdmin])
+    def me(self, request):
+        user = request.user
+        if request.method in ["PUT", "PATCH"]:
+            serializer = self.get_serializer(user, data=request.data, partial=(request.method == "PATCH"))
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        return Response(self.get_serializer(user).data)
+
 
 @csrf_exempt
 def google_callback(request):
@@ -124,7 +150,6 @@ def google_callback(request):
     if not access_token or not id_token:
         return JsonResponse({"error": "Missing id_token or access_token"}, status=400)
 
-    # Display tokens in browser so you can copy them
     html = f"""
     <html>
     <body style="font-family: sans-serif; padding: 2rem;">

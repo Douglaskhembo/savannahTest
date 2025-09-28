@@ -8,7 +8,7 @@ User = get_user_model()
 def notify_order_placed(order):
     # sending SMS to customer
     phone = order.customer.phone
-    if phone and phone.startswith("0"):  # normalize Kenyan numbers
+    if phone and phone.startswith("0"):
         phone = "+254" + phone[1:]
 
     msg = f"Hi {order.customer.first_name}, your order #{order.order_code} has been placed. Total: {order.total}"
