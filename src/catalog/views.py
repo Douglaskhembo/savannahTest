@@ -29,36 +29,37 @@ class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def average_price(self, request):
-        category_id = request.query_params.get('category_id')
+        category_id = request.query_params.get("category_id")
         if not category_id:
             return Response(
-                {"detail": "Parameter 'category_id' is required."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "category_id required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             category = Category.objects.get(pk=category_id)
         except Category.DoesNotExist:
             return Response(
-                {"detail": f"Category with id {category_id} not found."},
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": "category not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         try:
             descendants = category.get_descendants()
-            category_ids = [category.id] + list(descendants.values_list("id", flat=True))
-            avg_price = Product.objects.filter(category_id__in=category_ids).aggregate(
-                avg=Avg("price")
-            )["avg"] or 0
+            descendant_ids = [c.id for c in descendants]
+            category_ids = [category.id] + descendant_ids
+            avg_price = (
+                Product.objects.filter(category_id__in=category_ids).aggregate(
+                    avg=Avg("price")
+                )["avg"]
+                or 0
+            )
         except Exception as e:
             return Response(
                 {"detail": f"Error calculating average price: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        return Response({
-            "category": category.name,
-            "average_price": avg_price
-        })
+        return Response({"category": category.name, "average_price": avg_price})
