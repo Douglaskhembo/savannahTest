@@ -22,6 +22,3 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-
-# 234745539389-ldvr4s0vavag6a6c4nsu9528fmf8vdb6.apps.googleusercontent.com
