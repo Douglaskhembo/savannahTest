@@ -1,24 +1,17 @@
 #!/bin/sh
 set -e
 
-# Wait for render database
-if [ -n "$DATABASE_URL" ]; then
-  DB_USER=$(echo $DATABASE_URL | sed -E 's#.*//([^:]+):.*#\1#')
-  DB_PASSWORD=$(echo $DATABASE_URL | sed -E 's#.*//[^:]+:([^@]+)@.*#\1#')
-  DB_HOST=$(echo $DATABASE_URL | sed -E 's#.*@([^:/]+).*#\1#')
-  DB_PORT=$(echo $DATABASE_URL | sed -E 's#.*:([0-9]+)/.*#\1#')
-
-  echo "Waiting for database $DB_HOST:$DB_PORT..."
-  until PGPASSWORD="$DB_PASSWORD" pg_isready -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER"; do
-    sleep 1
-    echo "Waiting for database $DB_HOST:$DB_PORT..."
-  done
-  echo "Database is up!"
-fi
+echo "Starting Django setup..."
 
 echo "Running migrations..."
+python manage.py makemigrations --noinput
 python manage.py migrate --noinput
+
+echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
 echo "Starting server..."
-exec "$@"
+exec gunicorn src.config.wsgi:application \
+    --bind 0.0.0.0:${PORT:-8000} \
+    --workers 3 \
+    --timeout 120
