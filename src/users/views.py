@@ -137,4 +137,3 @@ def google_callback(request):
     </html>
     """
     return HttpResponse(html)
-
