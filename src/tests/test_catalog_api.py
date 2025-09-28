@@ -28,21 +28,21 @@ def product(category):
 @pytest.fixture
 def admin_user():
     return User.objects.create_user(
-        username="admin", password="pass123", role=User.Role.ADMIN
+        username="admin", password="pass123", role=User.Role.ADMIN, phone="0711111111",
     )
 
 
 @pytest.fixture
 def customer_user():
     return User.objects.create_user(
-        username="customer", password="pass123", role=User.Role.CUSTOMER
+        username="customer", password="pass123", role=User.Role.BUYER, phone="0711111111",
     )
 
 
 @pytest.fixture
 def another_customer():
     return User.objects.create_user(
-        username="other", password="pass123", role=User.Role.CUSTOMER
+        username="other", password="pass123", role=User.Role.BUYER, phone="0711111111",
     )
 
 
