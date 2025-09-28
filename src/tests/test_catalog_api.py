@@ -149,4 +149,4 @@ def test_customer_cannot_access_others_order(api_client, another_customer, custo
     api_client.force_authenticate(user=another_customer)
     url = reverse("order-detail", args=[customer_order.id])
     response = api_client.get(url)
-    assert response.status_code == 403
+    assert response.status_code == 404
