@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <title>Swagger UI: OAuth2 Redirect</title>
+</head>
+<body>
+<script>
+  'use strict';
+  function run () {
+    var oauth2 = window.opener.swaggerUIRedirectOauth2;
+    var sentState = oauth2.state;
+    var redirectUrl = window.location.href;
+    var qp = {};
+    redirectUrl.replace(/([^?#]*)(#.*)?$/, function(_, search, hash) {
+      if (search) {
+        search.substring(1).split("&").forEach(function(p) {
+          var kv = p.split("=");
+          kv[0] = decodeURIComponent(kv[0]);
+          kv[1] = decodeURIComponent(kv[1] || "");
+          qp[kv[0]] = kv[1];
+        });
+      }
+      if (hash) {
+        hash.substring(1).split("&").forEach(function(p) {
+          var kv = p.split("=");
+          kv[0] = decodeURIComponent(kv[0]);
+          kv[1] = decodeURIComponent(kv[1] || "");
+          qp[kv[0]] = kv[1];
+        });
+      }
+    });
+
+    if (qp.state !== sentState) {
+      oauth2.errCb({ message: "State mismatch" });
+      return;
+    }
+
+    if (qp.code) {
+      delete oauth2.state;
+      oauth2.callback({code: qp.code, state: qp.state});
+    } else {
+      oauth2.errCb({ message: "Authorization failed" });
+    }
+    window.close();
+  }
+  run();
+</script>
+</body>
+</html>

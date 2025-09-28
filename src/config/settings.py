@@ -3,13 +3,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
 
-load_dotenv()
+# --- Load the environment file ---
+ENV_FILE = os.getenv("ENV_FILE", ".env.local")
+load_dotenv(dotenv_path=ENV_FILE)
 
 # --- Paths ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- Security ---
-SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
+SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1")
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
 CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False").lower() in ("true", "1")
@@ -68,7 +70,7 @@ WSGI_APPLICATION = 'src.config.wsgi.application'
 # --- Database ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise Exception("DATABASE_URL is not set in .env")
+    raise Exception("DATABASE_URL is not set in .env files")
 
 DATABASES = {
     'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
