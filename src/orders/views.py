@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import Order
 from .serializers import OrderSerializer
-from src.users.permissions import IsOwnerOrAdmin
+from .permissions import IsOwnerOrAdmin
 
 
 class OrderViewSet(viewsets.ModelViewSet):
