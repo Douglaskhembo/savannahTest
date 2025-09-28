@@ -28,21 +28,21 @@ def product(category):
 @pytest.fixture
 def admin_user():
     return User.objects.create_user(
-        username="admin", password="pass123", role=User.Role.ADMIN, phone="0711111111",
+        email="admin", password="pass123", role=User.Role.ADMIN, phone="0711111111",
     )
 
 
 @pytest.fixture
 def customer_user():
     return User.objects.create_user(
-        username="customer", password="pass123", role=User.Role.BUYER, phone="0711111111",
+        email="customer", password="pass123", role=User.Role.BUYER, phone="0711111111",
     )
 
 
 @pytest.fixture
 def another_customer():
     return User.objects.create_user(
-        username="other", password="pass123", role=User.Role.BUYER, phone="0711111111",
+        email="other", password="pass123", role=User.Role.BUYER, phone="0711111111",
     )
 
 
@@ -61,6 +61,7 @@ def test_list_categories(api_client, category):
 
 
 def test_delete_category_with_products_fails(api_client, product):
+    api_client.force_authenticate(user=admin_user)
     url = reverse("category-detail", args=[product.category.id])
     response = api_client.delete(url)
     assert response.status_code == 400
@@ -68,6 +69,7 @@ def test_delete_category_with_products_fails(api_client, product):
 
 
 def test_delete_category_without_products(api_client):
+    api_client.force_authenticate(user=admin_user)
     cat = Category.objects.create(name="Produce")
     url = reverse("category-detail", args=[cat.id])
     response = api_client.delete(url)
