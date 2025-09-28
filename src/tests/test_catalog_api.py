@@ -2,6 +2,10 @@ import pytest
 from django.urls import reverse
 from rest_framework.test import APIClient
 from src.catalog.models import Category, Product
+from src.orders.models import Order
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 pytestmark = pytest.mark.django_db
 
@@ -20,6 +24,34 @@ def category():
 def product(category):
     return Product.objects.create(name="Bread", price=50, category=category)
 
+
+@pytest.fixture
+def admin_user():
+    return User.objects.create_user(
+        username="admin", password="pass123", role=User.Role.ADMIN
+    )
+
+
+@pytest.fixture
+def customer_user():
+    return User.objects.create_user(
+        username="customer", password="pass123", role=User.Role.CUSTOMER
+    )
+
+
+@pytest.fixture
+def another_customer():
+    return User.objects.create_user(
+        username="other", password="pass123", role=User.Role.CUSTOMER
+    )
+
+
+@pytest.fixture
+def customer_order(customer_user, product):
+    return Order.objects.create(customer=customer_user, status="PENDING")
+
+
+# ----------------- CATEGORY TESTS -----------------
 
 def test_list_categories(api_client, category):
     url = reverse("category-list")
@@ -41,6 +73,8 @@ def test_delete_category_without_products(api_client):
     response = api_client.delete(url)
     assert response.status_code == 204
 
+
+# ----------------- PRODUCT TESTS -----------------
 
 def test_list_products(api_client, product):
     url = reverse("product-list")
@@ -72,3 +106,47 @@ def test_average_price_success(api_client, category):
     assert response.status_code == 200
     assert response.data["category"] == "Bakery"
     assert response.data["average_price"] == pytest.approx(150.0)
+
+
+# ----------------- PERMISSION TESTS -----------------
+
+def test_admin_can_access_any_user(api_client, admin_user, customer_user):
+    api_client.force_authenticate(user=admin_user)
+    url = reverse("user-detail", args=[customer_user.id])
+    response = api_client.get(url)
+    assert response.status_code == 200
+
+
+def test_user_can_access_self_but_not_others(api_client, customer_user, another_customer):
+    api_client.force_authenticate(user=customer_user)
+
+    # Self access ✅
+    url = reverse("user-detail", args=[customer_user.id])
+    response = api_client.get(url)
+    assert response.status_code == 200
+
+    # Other user ❌
+    url = reverse("user-detail", args=[another_customer.id])
+    response = api_client.get(url)
+    assert response.status_code == 403
+
+
+def test_admin_can_access_any_order(api_client, admin_user, customer_order):
+    api_client.force_authenticate(user=admin_user)
+    url = reverse("order-detail", args=[customer_order.id])
+    response = api_client.get(url)
+    assert response.status_code == 200
+
+
+def test_customer_can_access_own_order(api_client, customer_user, customer_order):
+    api_client.force_authenticate(user=customer_user)
+    url = reverse("order-detail", args=[customer_order.id])
+    response = api_client.get(url)
+    assert response.status_code == 200
+
+
+def test_customer_cannot_access_others_order(api_client, another_customer, customer_order):
+    api_client.force_authenticate(user=another_customer)
+    url = reverse("order-detail", args=[customer_order.id])
+    response = api_client.get(url)
+    assert response.status_code == 403
