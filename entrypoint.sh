@@ -1,6 +1,7 @@
 #!/bin/sh
 set -e
 
+# Wait for render database
 if [ -n "$DATABASE_URL" ]; then
   DB_USER=$(echo $DATABASE_URL | sed -E 's#.*//([^:]+):.*#\1#')
   DB_PASSWORD=$(echo $DATABASE_URL | sed -E 's#.*//[^:]+:([^@]+)@.*#\1#')
@@ -16,7 +17,6 @@ if [ -n "$DATABASE_URL" ]; then
 fi
 
 echo "Running migrations..."
-python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 

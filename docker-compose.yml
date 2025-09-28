@@ -6,25 +6,5 @@ services:
     command: gunicorn src.config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3 --timeout 120
     volumes:
       - ./:/app
-    env_file:
-      - ${ENV_FILE:-.env.local}
     ports:
       - "8000:8000"
-    depends_on:
-      - db
-
-  db:
-    image: postgres:15
-    container_name: savannah_db
-    restart: always
-    environment:
-      POSTGRES_USER: savannah
-      POSTGRES_PASSWORD: savannah_user
-      POSTGRES_DB: savannah_db
-    ports:
-      - "5430:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
-volumes:
-  pgdata:
