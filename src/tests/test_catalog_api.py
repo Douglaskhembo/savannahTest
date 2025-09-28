@@ -28,21 +28,21 @@ def product(category):
 @pytest.fixture
 def admin_user():
     return User.objects.create_user(
-        email="admin", password="pass123", role=User.Role.ADMIN, phone="0711111111",
+        email="admin@test.com", password="pass123", role=User.Role.ADMIN, phone="0711111111",
     )
 
 
 @pytest.fixture
 def customer_user():
     return User.objects.create_user(
-        email="customer", password="pass123", role=User.Role.BUYER, phone="0711111111",
+        email="customer@test.com", password="pass123", role=User.Role.BUYER, phone="0722222222",
     )
 
 
 @pytest.fixture
 def another_customer():
     return User.objects.create_user(
-        email="other", password="pass123", role=User.Role.BUYER, phone="0711111111",
+        email="other@test.com", password="pass123", role=User.Role.BUYER, phone="0733333333",
     )
 
 
@@ -60,7 +60,7 @@ def test_list_categories(api_client, category):
     assert response.data[0]["name"] == "Bakery"
 
 
-def test_delete_category_with_products_fails(api_client, product):
+def test_delete_category_with_products_fails(api_client, admin_user, product):
     api_client.force_authenticate(user=admin_user)
     url = reverse("category-detail", args=[product.category.id])
     response = api_client.delete(url)
@@ -68,7 +68,7 @@ def test_delete_category_with_products_fails(api_client, product):
     assert "Cannot delete category" in response.data["detail"]
 
 
-def test_delete_category_without_products(api_client):
+def test_delete_category_without_products(api_client, admin_user):
     api_client.force_authenticate(user=admin_user)
     cat = Category.objects.create(name="Produce")
     url = reverse("category-detail", args=[cat.id])
@@ -122,12 +122,10 @@ def test_admin_can_access_any_user(api_client, admin_user, customer_user):
 def test_user_can_access_self_but_not_others(api_client, customer_user, another_customer):
     api_client.force_authenticate(user=customer_user)
 
-    # Self access ✅
     url = reverse("user-detail", args=[customer_user.id])
     response = api_client.get(url)
     assert response.status_code == 200
 
-    # Other user ❌
     url = reverse("user-detail", args=[another_customer.id])
     response = api_client.get(url)
     assert response.status_code == 403
