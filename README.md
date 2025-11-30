@@ -12,3 +12,5 @@ https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=234745
 - Order placement and notifications (SMS + Email)
 - Soft delete for orders
 - Swagger API documentation
+
+## Building UI
